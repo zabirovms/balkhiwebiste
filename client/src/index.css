@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Base colors */
+  --background: 0 0% 98%;
+  --foreground: 240 10% 4%;
+  
+  /* Muted colors */
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  
+  /* Popup/overlay colors */
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 4%;
+  
+  /* Card colors */
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 4%;
+  
+  /* Border and input colors */
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  
+  /* Primary brand colors */
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+  
+  /* Secondary colors */
+  --secondary: 195 83% 38%;
+  --secondary-foreground: 210 40% 98%;
+  
+  /* Accent colors */
+  --accent: 47 95% 50%;
+  --accent-foreground: 240 5.9% 10%;
+  
+  /* Destructive/error colors */
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  
+  /* Ring color for focus states */
+  --ring: 240 5% 65%;
+  
+  /* Border radius */
+  --radius: 0.5rem;
+  
+  /* Font families */
+  --primary-font: 'Noto Sans', sans-serif;
+  --poetry-font: 'Noto Serif', serif;
+  --decorative-font: 'Noto Nastaliq Urdu', serif;
+}
+
+.dark {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  
+  --popover: 240 10% 4%;
+  --popover-foreground: 0 0% 98%;
+  
+  --card: 240 10% 4%;
+  --card-foreground: 0 0% 98%;
+  
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  
+  --primary: 217 91% 60%;
+  --primary-foreground: 210 40% 98%;
+  
+  --secondary: 196 80% 45%;
+  --secondary-foreground: 210 40% 98%;
+  
+  --accent: 47 95% 55%;
+  --accent-foreground: 240 5.9% 10%;
+  
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  
+  --ring: 240 4.9% 83.9%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--primary-font);
+  }
+  
+  /* Poetry text styling */
+  .poetry-text {
+    font-family: var(--poetry-font);
+    white-space: pre-wrap;
+    line-height: 2.5;
+  }
+  
+  /* Decorative text styling for special elements */
+  .decorative-text {
+    font-family: var(--decorative-font);
+  }
+  
+  /* Highlight text */
+  .highlight {
+    @apply bg-yellow-200 dark:bg-yellow-900 dark:bg-opacity-40 px-0.5 rounded;
+  }
+  
+  /* Fade-in animation */
+  .fade-in {
+    animation: fadeIn 0.5s ease-in;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* Book card hover effects */
+  .book-card {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .book-card:hover {
+    @apply -translate-y-1 shadow-xl;
+  }
+  
+  /* Poem card hover effects */
+  .poem-card {
+    @apply transition-all duration-300 ease-in-out border-r-4 border-transparent;
+  }
+  
+  .poem-card:hover {
+    @apply border-r-primary bg-gray-50 dark:bg-gray-800;
+  }
+  
+  /* Audio player custom styling */
+  .audio-player {
+    --player-bg: #F1F5F9;
+    --progress-bg: #CBD5E1;
+    --progress-fill: #1E40AF;
+    --button-color: #334155;
+    --time-color: #64748B;
+  }
+  
+  .dark .audio-player {
+    --player-bg: #1F2937;
+    --progress-bg: #4B5563;
+    --progress-fill: #3B82F6;
+    --button-color: #E5E7EB;
+    --time-color: #9CA3AF;
+  }
+}
