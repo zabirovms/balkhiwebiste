@@ -1,0 +1,98 @@
+import { pgTable, text, serial, integer, timestamp, varchar } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// User schema
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+});
+
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+});
+
+// Poems schema (main poetry table)
+export const poems = pgTable("poems", {
+  poemId: integer("poem_id").primaryKey(),
+  poemTsv: text("poem_tsv"),
+  volumeNum: integer("volume_num"),
+  uniqueId: integer("unique_id"),
+  poemText: text("poem_text"),
+  volumeNumber: varchar("volume_number", { length: 255 }),
+  sectionTitle: varchar("section_title", { length: 255 }),
+  bookTitle: varchar("book_title", { length: 255 }),
+});
+
+export const insertPoemSchema = createInsertSchema(poems).omit({
+  poemId: true,
+  poemTsv: true,
+});
+
+// Divan Poems (poems from Divan-e Shams)
+export const divanPoems = pgTable("divan_poems", {
+  id: serial("id").primaryKey(),
+  poemId: integer("poem_id"),
+  createdAt: timestamp("created_at"),
+  poemTsv: text("poem_tsv"),
+  sectionTitle: text("section_title"),
+  poemText: text("poem_text"),
+});
+
+export const insertDivanPoemSchema = createInsertSchema(divanPoems).omit({
+  id: true,
+  poemTsv: true,
+});
+
+// Mixed Poems (other collection poems)
+export const mixedPoems = pgTable("mixed_poems", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("created_at"),
+  poemText: text("poem_text"),
+});
+
+export const insertMixedPoemSchema = createInsertSchema(mixedPoems).omit({
+  id: true,
+});
+
+// Highlighted Verses (for daily quotes and featured content)
+export const highlightedVerses = pgTable("highlighted_verses", {
+  verseId: serial("verse_id").primaryKey(),
+  poemUniqueId: integer("poem_unique_id"),
+  verseText: text("verse_text"),
+});
+
+export const insertHighlightedVerseSchema = createInsertSchema(highlightedVerses).omit({
+  verseId: true,
+});
+
+// Quotes (inspirational quotes and daily verses)
+export const quotes = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  text: text("text"),
+});
+
+export const insertQuoteSchema = createInsertSchema(quotes).omit({
+  id: true,
+});
+
+// Types for TypeScript
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Poem = typeof poems.$inferSelect;
+export type InsertPoem = z.infer<typeof insertPoemSchema>;
+
+export type DivanPoem = typeof divanPoems.$inferSelect;
+export type InsertDivanPoem = z.infer<typeof insertDivanPoemSchema>;
+
+export type MixedPoem = typeof mixedPoems.$inferSelect;
+export type InsertMixedPoem = z.infer<typeof insertMixedPoemSchema>;
+
+export type HighlightedVerse = typeof highlightedVerses.$inferSelect;
+export type InsertHighlightedVerse = z.infer<typeof insertHighlightedVerseSchema>;
+
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = z.infer<typeof insertQuoteSchema>;
