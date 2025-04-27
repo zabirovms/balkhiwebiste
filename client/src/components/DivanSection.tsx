@@ -165,8 +165,8 @@ const DivanSection = () => {
                   >
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="font-medium text-gray-800 dark:text-gray-200">
-                        <Link href={`/divan/${poem.ghazalNumber}`}>
-                          <a className="hover:text-primary-700 dark:hover:text-primary-400 transition">{poem.title}</a>
+                        <Link href={`/divan/${poem.id}`}>
+                          <a className="hover:text-primary-700 dark:hover:text-primary-400 transition">{poem.sectionTitle || `Ғазали ${poem.id}`}</a>
                         </Link>
                       </h4>
                       <div className="flex space-x-2">
@@ -179,13 +179,16 @@ const DivanSection = () => {
                       </div>
                     </div>
                     <p className="poetry-text text-gray-700 dark:text-gray-300 line-clamp-2 mb-2">
-                      {poem.content.split('\n').slice(0, 2).join('\n')}
+                      {poem.poemText ? poem.poemText.split('\n').slice(0, 2).join('\n') : ''}
                     </p>
                     <div className="flex justify-between items-center">
                       <div className="flex items-center">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mr-3">{poem.baytCount} байт</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mr-3">
+                          {poem.poemText ? Math.ceil(poem.poemText.split('\n').length / 2) : 0} байт
+                        </span>
                         <div className="flex space-x-1">
-                          {poem.tags.slice(0, 2).map(tag => {
+                          {/* Since we don't have tags in the database, we'll use constant tags */}
+                          {['Ишқ', 'Ирфон'].map(tag => {
                             const { bg, text } = getTagColor(tag);
                             return (
                               <span key={tag} className={`inline-block ${bg} ${text} text-xs px-2 py-0.5 rounded`}>

@@ -193,6 +193,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Daily verse (using highlighted verses)
+  apiRouter.get("/daily-verse", async (req, res) => {
+    const verse = await storage.getRandomHighlightedVerse();
+    
+    if (!verse) {
+      return res.status(404).json({ message: "No daily verse available" });
+    }
+    
+    // Convert to the format expected by the frontend
+    const dailyVerse = {
+      text: verse.verseText,
+      source: "Маснавии Маънавӣ", // Default source
+      date: new Date().toISOString().split('T')[0],
+      audioUrl: null // No audio in the original database
+    };
+    
+    res.json(dailyVerse);
+  });
+  
+  apiRouter.get("/random-verse", async (req, res) => {
+    const verse = await storage.getRandomHighlightedVerse();
+    
+    if (!verse) {
+      return res.status(404).json({ message: "No verses available" });
+    }
+    
+    // Convert to the format expected by the frontend
+    const dailyVerse = {
+      text: verse.verseText,
+      source: "Маснавии Маънавӣ", // Default source
+      date: new Date().toISOString().split('T')[0],
+      audioUrl: null // No audio in the original database
+    };
+    
+    res.json(dailyVerse);
+  });
+  
   // Search endpoint
   apiRouter.get("/search", async (req, res) => {
     const query = req.query.q as string;
