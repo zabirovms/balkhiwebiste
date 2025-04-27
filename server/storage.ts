@@ -1,55 +1,56 @@
 import { eq, like, or, and, desc, sql } from 'drizzle-orm';
 import { db } from './db';
 import { 
-  users, divanPoems, masnaviBooks, masnaviPoems, collections, dailyVerses,
+  users, poems, divanPoems, mixedPoems, highlightedVerses, quotes,
   type User, type InsertUser, 
+  type Poem, type InsertPoem,
   type DivanPoem, type InsertDivanPoem,
-  type MasnaviBook, type InsertMasnaviBook,
-  type MasnaviPoem, type InsertMasnaviPoem,
-  type Collection, type InsertCollection,
-  type DailyVerse, type InsertDailyVerse
+  type MixedPoem, type InsertMixedPoem,
+  type HighlightedVerse, type InsertHighlightedVerse,
+  type Quote, type InsertQuote
 } from "@shared/schema";
 
 export interface IStorage {
-  // User methods (from template)
+  // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
+  // Poem methods
+  getPoems(page?: number, limit?: number): Promise<Poem[]>;
+  getPoemById(poemId: number): Promise<Poem | undefined>;
+  getPoemsByVolumeNum(volumeNum: number): Promise<Poem[]>;
+  createPoem(poem: InsertPoem): Promise<Poem>;
+  
   // DivanPoem methods
-  getDivanPoems(page?: number, limit?: number, tag?: string): Promise<DivanPoem[]>;
-  getDivanPoemByGhazal(ghazalNumber: number): Promise<DivanPoem | undefined>;
-  getFavoriteDivanPoems(): Promise<DivanPoem[]>;
-  toggleDivanPoemFavorite(id: number): Promise<DivanPoem | undefined>;
+  getDivanPoems(page?: number, limit?: number): Promise<DivanPoem[]>;
+  getDivanPoemById(id: number): Promise<DivanPoem | undefined>;
   createDivanPoem(poem: InsertDivanPoem): Promise<DivanPoem>;
   
-  // MasnaviBook methods
-  getMasnaviBooks(): Promise<MasnaviBook[]>;
-  getMasnaviBookByDaftar(daftarNumber: number): Promise<MasnaviBook | undefined>;
-  createMasnaviBook(book: InsertMasnaviBook): Promise<MasnaviBook>;
+  // MixedPoem methods
+  getMixedPoems(page?: number, limit?: number): Promise<MixedPoem[]>;
+  getMixedPoemById(id: number): Promise<MixedPoem | undefined>;
+  createMixedPoem(poem: InsertMixedPoem): Promise<MixedPoem>;
   
-  // MasnaviPoem methods
-  getMasnaviPoemsByBookId(bookId: number): Promise<MasnaviPoem[]>;
-  getMasnaviPoem(id: number): Promise<MasnaviPoem | undefined>;
-  toggleMasnaviPoemFavorite(id: number): Promise<MasnaviPoem | undefined>;
-  createMasnaviPoem(poem: InsertMasnaviPoem): Promise<MasnaviPoem>;
+  // HighlightedVerse methods
+  getHighlightedVerses(): Promise<HighlightedVerse[]>;
+  getHighlightedVerseById(verseId: number): Promise<HighlightedVerse | undefined>;
+  getRandomHighlightedVerse(): Promise<HighlightedVerse | undefined>;
+  createHighlightedVerse(verse: InsertHighlightedVerse): Promise<HighlightedVerse>;
   
-  // Collection methods
-  getCollections(): Promise<Collection[]>;
-  getCollection(id: number): Promise<Collection | undefined>;
-  createCollection(collection: InsertCollection): Promise<Collection>;
-  
-  // DailyVerse methods
-  getDailyVerse(): Promise<DailyVerse | undefined>;
-  getRandomVerse(): Promise<DailyVerse | undefined>;
-  createDailyVerse(verse: InsertDailyVerse): Promise<DailyVerse>;
+  // Quote methods
+  getQuotes(): Promise<Quote[]>;
+  getQuoteById(id: number): Promise<Quote | undefined>;
+  getRandomQuote(): Promise<Quote | undefined>;
+  createQuote(quote: InsertQuote): Promise<Quote>;
   
   // Search method
-  searchPoems(query: string): Promise<(DivanPoem | MasnaviPoem)[]>;
+  searchPoems(query: string): Promise<(Poem | DivanPoem | MixedPoem)[]>;
 }
 
 // Database Storage implementation
 export class DatabaseStorage implements IStorage {
+  // User methods
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -68,52 +69,59 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getDivanPoems(page: number = 1, limit: number = 10, tag?: string): Promise<DivanPoem[]> {
+  // Poem methods
+  async getPoems(page: number = 1, limit: number = 10): Promise<Poem[]> {
     const offset = (page - 1) * limit;
-    
-    let query = db.select().from(divanPoems);
-    
-    if (tag) {
-      // Using PostgreSQL array contains operation
-      query = query.where(sql`${divanPoems.tags} @> ARRAY[${tag}]::text[]`);
-    }
-    
-    return await query.limit(limit).offset(offset).orderBy(divanPoems.ghazalNumber);
+    return await db
+      .select()
+      .from(poems)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(poems.poemId);
   }
 
-  async getDivanPoemByGhazal(ghazalNumber: number): Promise<DivanPoem | undefined> {
+  async getPoemById(poemId: number): Promise<Poem | undefined> {
     const [poem] = await db
       .select()
-      .from(divanPoems)
-      .where(eq(divanPoems.ghazalNumber, ghazalNumber));
+      .from(poems)
+      .where(eq(poems.poemId, poemId));
     return poem || undefined;
   }
 
-  async getFavoriteDivanPoems(): Promise<DivanPoem[]> {
+  async getPoemsByVolumeNum(volumeNum: number): Promise<Poem[]> {
+    return await db
+      .select()
+      .from(poems)
+      .where(eq(poems.volumeNum, volumeNum))
+      .orderBy(poems.poemId);
+  }
+
+  async createPoem(poem: InsertPoem): Promise<Poem> {
+    // We need to wrap the object in an array because the insert method expects an array
+    const [newPoem] = await db
+      .insert(poems)
+      .values([poem])
+      .returning();
+    return newPoem;
+  }
+
+  // DivanPoem methods
+  async getDivanPoems(page: number = 1, limit: number = 10): Promise<DivanPoem[]> {
+    const offset = (page - 1) * limit;
     return await db
       .select()
       .from(divanPoems)
-      .where(eq(divanPoems.isFavorite, true))
-      .orderBy(divanPoems.ghazalNumber);
+      .limit(limit)
+      .offset(offset)
+      .orderBy(divanPoems.id);
   }
 
-  async toggleDivanPoemFavorite(id: number): Promise<DivanPoem | undefined> {
-    // First get the current state
+  async getDivanPoemById(id: number): Promise<DivanPoem | undefined> {
     const [poem] = await db
       .select()
       .from(divanPoems)
       .where(eq(divanPoems.id, id));
-    
-    if (!poem) return undefined;
-    
-    // Toggle the favorite status
-    const [updatedPoem] = await db
-      .update(divanPoems)
-      .set({ isFavorite: !poem.isFavorite })
-      .where(eq(divanPoems.id, id))
-      .returning();
-    
-    return updatedPoem;
+    return poem || undefined;
   }
 
   async createDivanPoem(poem: InsertDivanPoem): Promise<DivanPoem> {
@@ -124,126 +132,101 @@ export class DatabaseStorage implements IStorage {
     return newPoem;
   }
 
-  async getMasnaviBooks(): Promise<MasnaviBook[]> {
+  // MixedPoem methods
+  async getMixedPoems(page: number = 1, limit: number = 10): Promise<MixedPoem[]> {
+    const offset = (page - 1) * limit;
     return await db
       .select()
-      .from(masnaviBooks)
-      .orderBy(masnaviBooks.daftarNumber);
+      .from(mixedPoems)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(mixedPoems.id);
   }
 
-  async getMasnaviBookByDaftar(daftarNumber: number): Promise<MasnaviBook | undefined> {
-    const [book] = await db
-      .select()
-      .from(masnaviBooks)
-      .where(eq(masnaviBooks.daftarNumber, daftarNumber));
-    return book || undefined;
-  }
-
-  async createMasnaviBook(book: InsertMasnaviBook): Promise<MasnaviBook> {
-    const [newBook] = await db
-      .insert(masnaviBooks)
-      .values(book)
-      .returning();
-    return newBook;
-  }
-
-  async getMasnaviPoemsByBookId(bookId: number): Promise<MasnaviPoem[]> {
-    return await db
-      .select()
-      .from(masnaviPoems)
-      .where(eq(masnaviPoems.bookId, bookId))
-      .orderBy(masnaviPoems.id);
-  }
-
-  async getMasnaviPoem(id: number): Promise<MasnaviPoem | undefined> {
+  async getMixedPoemById(id: number): Promise<MixedPoem | undefined> {
     const [poem] = await db
       .select()
-      .from(masnaviPoems)
-      .where(eq(masnaviPoems.id, id));
+      .from(mixedPoems)
+      .where(eq(mixedPoems.id, id));
     return poem || undefined;
   }
 
-  async toggleMasnaviPoemFavorite(id: number): Promise<MasnaviPoem | undefined> {
-    // First get the current state
-    const [poem] = await db
-      .select()
-      .from(masnaviPoems)
-      .where(eq(masnaviPoems.id, id));
-    
-    if (!poem) return undefined;
-    
-    // Toggle the favorite status
-    const [updatedPoem] = await db
-      .update(masnaviPoems)
-      .set({ isFavorite: !poem.isFavorite })
-      .where(eq(masnaviPoems.id, id))
-      .returning();
-    
-    return updatedPoem;
-  }
-
-  async createMasnaviPoem(poem: InsertMasnaviPoem): Promise<MasnaviPoem> {
+  async createMixedPoem(poem: InsertMixedPoem): Promise<MixedPoem> {
     const [newPoem] = await db
-      .insert(masnaviPoems)
+      .insert(mixedPoems)
       .values(poem)
       .returning();
     return newPoem;
   }
 
-  async getCollections(): Promise<Collection[]> {
+  // HighlightedVerse methods
+  async getHighlightedVerses(): Promise<HighlightedVerse[]> {
     return await db
       .select()
-      .from(collections)
-      .orderBy(collections.id);
+      .from(highlightedVerses)
+      .orderBy(highlightedVerses.verseId);
   }
 
-  async getCollection(id: number): Promise<Collection | undefined> {
-    const [collection] = await db
-      .select()
-      .from(collections)
-      .where(eq(collections.id, id));
-    return collection || undefined;
-  }
-
-  async createCollection(collection: InsertCollection): Promise<Collection> {
-    const [newCollection] = await db
-      .insert(collections)
-      .values(collection)
-      .returning();
-    return newCollection;
-  }
-
-  async getDailyVerse(): Promise<DailyVerse | undefined> {
-    // Get the most recent daily verse
+  async getHighlightedVerseById(verseId: number): Promise<HighlightedVerse | undefined> {
     const [verse] = await db
       .select()
-      .from(dailyVerses)
-      .orderBy(desc(dailyVerses.date))
-      .limit(1);
-    
+      .from(highlightedVerses)
+      .where(eq(highlightedVerses.verseId, verseId));
     return verse || undefined;
   }
 
-  async getRandomVerse(): Promise<DailyVerse | undefined> {
-    // Using PostgreSQL's random() function to get a random verse
+  async getRandomHighlightedVerse(): Promise<HighlightedVerse | undefined> {
     const [verse] = await db
       .select()
-      .from(dailyVerses)
+      .from(highlightedVerses)
       .orderBy(sql`RANDOM()`)
       .limit(1);
-    
     return verse || undefined;
   }
 
-  async createDailyVerse(verse: InsertDailyVerse): Promise<DailyVerse> {
+  async createHighlightedVerse(verse: InsertHighlightedVerse): Promise<HighlightedVerse> {
     const [newVerse] = await db
-      .insert(dailyVerses)
+      .insert(highlightedVerses)
       .values(verse)
       .returning();
     return newVerse;
   }
 
-  async searchPoems(query: string): Promise<(DivanPoem | MasnaviPoem)[]> {
+  // Quote methods
+  async getQuotes(): Promise<Quote[]> {
+    return await db
+      .select()
+      .from(quotes)
+      .orderBy(quotes.id);
+  }
+
+  async getQuoteById(id: number): Promise<Quote | undefined> {
+    const [quote] = await db
+      .select()
+      .from(quotes)
+      .where(eq(quotes.id, id));
+    return quote || undefined;
+  }
+
+  async getRandomQuote(): Promise<Quote | undefined> {
+    const [quote] = await db
+      .select()
+      .from(quotes)
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
+    return quote || undefined;
+  }
+
+  async createQuote(quote: InsertQuote): Promise<Quote> {
+    const [newQuote] = await db
+      .insert(quotes)
+      .values(quote)
+      .returning();
+    return newQuote;
+  }
+
+  // Search method
+  async searchPoems(query: string): Promise<(Poem | DivanPoem | MixedPoem)[]> {
     // Split the query into words for better search
     const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
     
@@ -252,42 +235,48 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Create LIKE conditions for each search term
-    const divanConditions = searchTerms.map(term => 
+    const poemConditions = searchTerms.map(term => 
       or(
-        like(divanPoems.content, `%${term}%`),
-        like(divanPoems.title, `%${term}%`),
-        sql`${divanPoems.tags} @> ARRAY[${term}]::text[]`
+        like(poems.poemText, `%${term}%`),
+        like(poems.sectionTitle, `%${term}%`),
+        like(poems.bookTitle, `%${term}%`)
       )
     );
     
-    const masnaviConditions = searchTerms.map(term => 
+    const divanConditions = searchTerms.map(term => 
       or(
-        like(masnaviPoems.content, `%${term}%`),
-        like(masnaviPoems.title, `%${term}%`),
-        sql`${masnaviPoems.tags} @> ARRAY[${term}]::text[]`
+        like(divanPoems.poemText, `%${term}%`),
+        like(divanPoems.sectionTitle, `%${term}%`)
       )
     );
+    
+    const mixedConditions = searchTerms.map(term => 
+      like(mixedPoems.poemText, `%${term}%`)
+    );
+    
+    // Get matching poems
+    const poemResults = await db
+      .select()
+      .from(poems)
+      .where(and(...poemConditions))
+      .limit(10);
     
     // Get matching Divan poems
     const divanResults = await db
       .select()
       .from(divanPoems)
       .where(and(...divanConditions))
-      .limit(20);
+      .limit(10);
     
-    // Get matching Masnavi poems
-    const masnaviResults = await db
+    // Get matching Mixed poems
+    const mixedResults = await db
       .select()
-      .from(masnaviPoems)
-      .where(and(...masnaviConditions))
-      .limit(20);
+      .from(mixedPoems)
+      .where(and(...mixedConditions))
+      .limit(10);
     
     // Combine and sort results
-    return [...divanResults, ...masnaviResults].sort((a, b) => 
-      // Sort by most relevant - prioritize title matches
-      (b.title.toLowerCase().includes(query.toLowerCase()) ? 1 : 0) - 
-      (a.title.toLowerCase().includes(query.toLowerCase()) ? 1 : 0)
-    );
+    return [...poemResults, ...divanResults, ...mixedResults];
   }
 }
 
