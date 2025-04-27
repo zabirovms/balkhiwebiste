@@ -1,10 +1,13 @@
+import { eq, like, or, and, desc, sql } from 'drizzle-orm';
+import { db } from './db';
 import { 
-  users, type User, type InsertUser,
-  divanPoems, type DivanPoem, type InsertDivanPoem,
-  masnaviBooks, type MasnaviBook, type InsertMasnaviBook,
-  masnaviPoems, type MasnaviPoem, type InsertMasnaviPoem,
-  collections, type Collection, type InsertCollection,
-  dailyVerses, type DailyVerse, type InsertDailyVerse
+  users, divanPoems, masnaviBooks, masnaviPoems, collections, dailyVerses,
+  type User, type InsertUser, 
+  type DivanPoem, type InsertDivanPoem,
+  type MasnaviBook, type InsertMasnaviBook,
+  type MasnaviPoem, type InsertMasnaviPoem,
+  type Collection, type InsertCollection,
+  type DailyVerse, type InsertDailyVerse
 } from "@shared/schema";
 
 export interface IStorage {
@@ -45,313 +48,247 @@ export interface IStorage {
   searchPoems(query: string): Promise<(DivanPoem | MasnaviPoem)[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private divanPoems: Map<number, DivanPoem>;
-  private masnaviBooks: Map<number, MasnaviBook>;
-  private masnaviPoems: Map<number, MasnaviPoem>;
-  private collections: Map<number, Collection>;
-  private dailyVerses: Map<number, DailyVerse>;
-  
-  currentId: number;
-  
-  constructor() {
-    this.users = new Map();
-    this.divanPoems = new Map();
-    this.masnaviBooks = new Map();
-    this.masnaviPoems = new Map();
-    this.collections = new Map();
-    this.dailyVerses = new Map();
-    this.currentId = 1;
-    
-    // Initialize with sample data
-    this.initializeSampleData();
-  }
-
-  // User methods (from template)
+// Database Storage implementation
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
-  
-  // DivanPoem methods
+
   async getDivanPoems(page: number = 1, limit: number = 10, tag?: string): Promise<DivanPoem[]> {
-    let poems = Array.from(this.divanPoems.values());
+    const offset = (page - 1) * limit;
+    
+    let query = db.select().from(divanPoems);
     
     if (tag) {
-      poems = poems.filter(poem => poem.tags.includes(tag));
+      // Using PostgreSQL array contains operation
+      query = query.where(sql`${divanPoems.tags} @> ARRAY[${tag}]::text[]`);
     }
     
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    
-    return poems.slice(startIndex, endIndex);
+    return await query.limit(limit).offset(offset).orderBy(divanPoems.ghazalNumber);
   }
-  
+
   async getDivanPoemByGhazal(ghazalNumber: number): Promise<DivanPoem | undefined> {
-    return Array.from(this.divanPoems.values()).find(
-      (poem) => poem.ghazalNumber === ghazalNumber
-    );
+    const [poem] = await db
+      .select()
+      .from(divanPoems)
+      .where(eq(divanPoems.ghazalNumber, ghazalNumber));
+    return poem || undefined;
   }
-  
+
   async getFavoriteDivanPoems(): Promise<DivanPoem[]> {
-    return Array.from(this.divanPoems.values()).filter(
-      (poem) => poem.isFavorite
-    );
+    return await db
+      .select()
+      .from(divanPoems)
+      .where(eq(divanPoems.isFavorite, true))
+      .orderBy(divanPoems.ghazalNumber);
   }
-  
+
   async toggleDivanPoemFavorite(id: number): Promise<DivanPoem | undefined> {
-    const poem = this.divanPoems.get(id);
-    if (poem) {
-      const updatedPoem = { ...poem, isFavorite: !poem.isFavorite };
-      this.divanPoems.set(id, updatedPoem);
-      return updatedPoem;
-    }
-    return undefined;
+    // First get the current state
+    const [poem] = await db
+      .select()
+      .from(divanPoems)
+      .where(eq(divanPoems.id, id));
+    
+    if (!poem) return undefined;
+    
+    // Toggle the favorite status
+    const [updatedPoem] = await db
+      .update(divanPoems)
+      .set({ isFavorite: !poem.isFavorite })
+      .where(eq(divanPoems.id, id))
+      .returning();
+    
+    return updatedPoem;
   }
-  
+
   async createDivanPoem(poem: InsertDivanPoem): Promise<DivanPoem> {
-    const id = this.currentId++;
-    const newPoem: DivanPoem = { ...poem, id };
-    this.divanPoems.set(id, newPoem);
+    const [newPoem] = await db
+      .insert(divanPoems)
+      .values(poem)
+      .returning();
     return newPoem;
   }
-  
-  // MasnaviBook methods
+
   async getMasnaviBooks(): Promise<MasnaviBook[]> {
-    return Array.from(this.masnaviBooks.values());
+    return await db
+      .select()
+      .from(masnaviBooks)
+      .orderBy(masnaviBooks.daftarNumber);
   }
-  
+
   async getMasnaviBookByDaftar(daftarNumber: number): Promise<MasnaviBook | undefined> {
-    return Array.from(this.masnaviBooks.values()).find(
-      (book) => book.daftarNumber === daftarNumber
-    );
+    const [book] = await db
+      .select()
+      .from(masnaviBooks)
+      .where(eq(masnaviBooks.daftarNumber, daftarNumber));
+    return book || undefined;
   }
-  
+
   async createMasnaviBook(book: InsertMasnaviBook): Promise<MasnaviBook> {
-    const id = this.currentId++;
-    const newBook: MasnaviBook = { ...book, id };
-    this.masnaviBooks.set(id, newBook);
+    const [newBook] = await db
+      .insert(masnaviBooks)
+      .values(book)
+      .returning();
     return newBook;
   }
-  
-  // MasnaviPoem methods
+
   async getMasnaviPoemsByBookId(bookId: number): Promise<MasnaviPoem[]> {
-    return Array.from(this.masnaviPoems.values()).filter(
-      (poem) => poem.bookId === bookId
-    );
+    return await db
+      .select()
+      .from(masnaviPoems)
+      .where(eq(masnaviPoems.bookId, bookId))
+      .orderBy(masnaviPoems.id);
   }
-  
+
   async getMasnaviPoem(id: number): Promise<MasnaviPoem | undefined> {
-    return this.masnaviPoems.get(id);
+    const [poem] = await db
+      .select()
+      .from(masnaviPoems)
+      .where(eq(masnaviPoems.id, id));
+    return poem || undefined;
   }
-  
+
   async toggleMasnaviPoemFavorite(id: number): Promise<MasnaviPoem | undefined> {
-    const poem = this.masnaviPoems.get(id);
-    if (poem) {
-      const updatedPoem = { ...poem, isFavorite: !poem.isFavorite };
-      this.masnaviPoems.set(id, updatedPoem);
-      return updatedPoem;
-    }
-    return undefined;
+    // First get the current state
+    const [poem] = await db
+      .select()
+      .from(masnaviPoems)
+      .where(eq(masnaviPoems.id, id));
+    
+    if (!poem) return undefined;
+    
+    // Toggle the favorite status
+    const [updatedPoem] = await db
+      .update(masnaviPoems)
+      .set({ isFavorite: !poem.isFavorite })
+      .where(eq(masnaviPoems.id, id))
+      .returning();
+    
+    return updatedPoem;
   }
-  
+
   async createMasnaviPoem(poem: InsertMasnaviPoem): Promise<MasnaviPoem> {
-    const id = this.currentId++;
-    const newPoem: MasnaviPoem = { ...poem, id };
-    this.masnaviPoems.set(id, newPoem);
+    const [newPoem] = await db
+      .insert(masnaviPoems)
+      .values(poem)
+      .returning();
     return newPoem;
   }
-  
-  // Collection methods
+
   async getCollections(): Promise<Collection[]> {
-    return Array.from(this.collections.values());
+    return await db
+      .select()
+      .from(collections)
+      .orderBy(collections.id);
   }
-  
+
   async getCollection(id: number): Promise<Collection | undefined> {
-    return this.collections.get(id);
+    const [collection] = await db
+      .select()
+      .from(collections)
+      .where(eq(collections.id, id));
+    return collection || undefined;
   }
-  
+
   async createCollection(collection: InsertCollection): Promise<Collection> {
-    const id = this.currentId++;
-    const newCollection: Collection = { ...collection, id };
-    this.collections.set(id, newCollection);
+    const [newCollection] = await db
+      .insert(collections)
+      .values(collection)
+      .returning();
     return newCollection;
   }
-  
-  // DailyVerse methods
+
   async getDailyVerse(): Promise<DailyVerse | undefined> {
-    const today = new Date().toISOString().split('T')[0];
-    return Array.from(this.dailyVerses.values()).find(
-      (verse) => verse.date === today
-    ) || this.getRandomVerse();
+    // Get the most recent daily verse
+    const [verse] = await db
+      .select()
+      .from(dailyVerses)
+      .orderBy(desc(dailyVerses.date))
+      .limit(1);
+    
+    return verse || undefined;
   }
-  
+
   async getRandomVerse(): Promise<DailyVerse | undefined> {
-    const verses = Array.from(this.dailyVerses.values());
-    if (verses.length === 0) return undefined;
-    const randomIndex = Math.floor(Math.random() * verses.length);
-    return verses[randomIndex];
+    // Using PostgreSQL's random() function to get a random verse
+    const [verse] = await db
+      .select()
+      .from(dailyVerses)
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
+    
+    return verse || undefined;
   }
-  
+
   async createDailyVerse(verse: InsertDailyVerse): Promise<DailyVerse> {
-    const id = this.currentId++;
-    const newVerse: DailyVerse = { ...verse, id };
-    this.dailyVerses.set(id, newVerse);
+    const [newVerse] = await db
+      .insert(dailyVerses)
+      .values(verse)
+      .returning();
     return newVerse;
   }
-  
-  // Search method
+
   async searchPoems(query: string): Promise<(DivanPoem | MasnaviPoem)[]> {
-    const lowercaseQuery = query.toLowerCase();
+    // Split the query into words for better search
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
     
-    const matchingDivanPoems = Array.from(this.divanPoems.values()).filter(
-      poem => poem.title.toLowerCase().includes(lowercaseQuery) || 
-              poem.content.toLowerCase().includes(lowercaseQuery)
+    if (searchTerms.length === 0) {
+      return [];
+    }
+    
+    // Create LIKE conditions for each search term
+    const divanConditions = searchTerms.map(term => 
+      or(
+        like(divanPoems.content, `%${term}%`),
+        like(divanPoems.title, `%${term}%`),
+        sql`${divanPoems.tags} @> ARRAY[${term}]::text[]`
+      )
     );
     
-    const matchingMasnaviPoems = Array.from(this.masnaviPoems.values()).filter(
-      poem => poem.title.toLowerCase().includes(lowercaseQuery) || 
-              poem.content.toLowerCase().includes(lowercaseQuery)
+    const masnaviConditions = searchTerms.map(term => 
+      or(
+        like(masnaviPoems.content, `%${term}%`),
+        like(masnaviPoems.title, `%${term}%`),
+        sql`${masnaviPoems.tags} @> ARRAY[${term}]::text[]`
+      )
     );
     
-    return [...matchingDivanPoems, ...matchingMasnaviPoems];
-  }
-  
-  // Initialize with sample data
-  private initializeSampleData() {
-    // Add sample Divan Poems
-    this.createDivanPoem({
-      ghazalNumber: 24,
-      title: "Ғазали 24",
-      content: "\"Биё, биё, ҳар чи ҳастӣ, биё, \nГар кофирӣ, гар бидпарастӣ, биё.\n\nДаргоҳи мо даргоҳи навмедӣ нест,\nСад бор агар тавба шикастӣ, биё.\"",
-      baytCount: 18,
-      tags: ["Ишқ", "Ирфон"],
-      isFavorite: false,
-      audioUrl: "/audio/ghazal-24.mp3",
-      explanation: "Дар ин ғазал, Мавлоно ба мафҳуми раҳмат ва бахшоиш ишора мекунад. Шоир таъкид менамояд, ки инсон ҳарчанд гунаҳкор бошад ҳам, метавонад ба сӯи маърифат ва муҳаббати илоҳӣ бозгардад."
-    });
+    // Get matching Divan poems
+    const divanResults = await db
+      .select()
+      .from(divanPoems)
+      .where(and(...divanConditions))
+      .limit(20);
     
-    this.createDivanPoem({
-      ghazalNumber: 50,
-      title: "Ғазали 50",
-      content: "\"Дар ҷаҳон ҳар кӣ паре дорад, пеши рӯи ту ояд,\nЗи ғамат ҳар кӣ ҳазин аст, ӯ сӯи ту биояд.\"",
-      baytCount: 21,
-      tags: ["Ҳикмат", "Табиат"],
-      isFavorite: false,
-      audioUrl: "/audio/ghazal-50.mp3",
-      explanation: "Дар ин ғазал Мавлоно дар бораи масъалаи ҷазбаи инсон ба сӯи ҳақиқат сухан меронад."
-    });
+    // Get matching Masnavi poems
+    const masnaviResults = await db
+      .select()
+      .from(masnaviPoems)
+      .where(and(...masnaviConditions))
+      .limit(20);
     
-    this.createDivanPoem({
-      ghazalNumber: 100,
-      title: "Ғазали 100",
-      content: "\"Нури ҳақро набувад нуру дигар,\nНест андар рухи ӯ ранги дигар.\"",
-      baytCount: 14,
-      tags: ["Ирфон", "Инсон"],
-      isFavorite: false,
-      audioUrl: "/audio/ghazal-100.mp3",
-      explanation: "Дар ин ғазал Мавлоно мафҳуми нури ҳақиқат ва асолати онро баён мекунад."
-    });
-    
-    // Add sample Masnavi Books
-    this.createMasnaviBook({
-      daftarNumber: 1,
-      title: "Дафтари аввал",
-      description: "Дар бораи ишқ, маърифат ва роҳи маънавӣ. Оғози Маснавӣ бо най ва ҳикояти он.",
-      baytCount: 4003,
-      imageUrl: "https://images.unsplash.com/photo-1567016546367-c27a0d56712e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&h=400&q=80",
-      themeColor: "blue"
-    });
-    
-    this.createMasnaviBook({
-      daftarNumber: 2,
-      title: "Дафтари дуюм",
-      description: "Дар бораи ҳикматҳои ирфонӣ ва мавзӯъҳои ахлоқӣ. Баёни тамсилҳои фалсафӣ.",
-      baytCount: 3810,
-      imageUrl: "https://images.unsplash.com/photo-1625859043880-56ebc1a50ffb?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&h=400&q=80",
-      themeColor: "green"
-    });
-    
-    this.createMasnaviBook({
-      daftarNumber: 3,
-      title: "Дафтари сеюм",
-      description: "Дар бораи тафаккури ирфонӣ ва маънии ҳаёт. Ҳикоятҳои пурмаъно ва рамзӣ.",
-      baytCount: 4810,
-      imageUrl: "https://images.unsplash.com/photo-1551645900-62b12f87a80f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&h=400&q=80",
-      themeColor: "amber"
-    });
-    
-    // Add sample Masnavi Poems
-    this.createMasnaviPoem({
-      bookId: 1,
-      title: "Ҳикояти Най",
-      content: "\"Бишнав аз най чун ҳикоят мекунад,\nАз ҷудоиҳо шикоят мекунад.\"",
-      baytCount: 35,
-      explanation: "Оғози Маснавӣ бо ҳикояти най, ки рамзи инсони комил аст.",
-      audioUrl: "/audio/ney-story.mp3",
-      isFavorite: false
-    });
-    
-    // Add sample Collections
-    this.createCollection({
-      title: "Ишқ ва ирфон",
-      description: "Маҷмӯи ашъор дар мавзӯи ишқ ва роҳи маънавии ирфон.",
-      poemCount: 45,
-      imageUrl: "https://images.unsplash.com/photo-1566933293069-a55a2436a5dd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&h=400&q=80",
-      type: "divan"
-    });
-    
-    this.createCollection({
-      title: "Ҳикматҳо",
-      description: "Ҳикматҳои ахлоқӣ ва фалсафӣ дар ашъори Мавлоно.",
-      poemCount: 32,
-      imageUrl: "https://images.unsplash.com/photo-1565794462772-5cf29c8513fd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&h=400&q=80",
-      type: "masnavi"
-    });
-    
-    this.createCollection({
-      title: "Рубоиёт",
-      description: "Гулчини беҳтарин рубоиёти Мавлоно аз Девони Шамс.",
-      poemCount: 60,
-      imageUrl: "https://images.unsplash.com/photo-1589813642001-2c5e8fd0bc0e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&h=400&q=80",
-      type: "divan"
-    });
-    
-    // Add sample Daily Verses
-    this.createDailyVerse({
-      text: "\"Биё, биё, ҳар чи ҳастӣ, биё, \nГар кофирӣ, гар бидпарастӣ, биё.\"",
-      source: "Девони Шамс, Ғазали 24",
-      audioUrl: "/audio/daily-verse-1.mp3",
-      date: new Date().toISOString().split('T')[0]
-    });
-    
-    this.createDailyVerse({
-      text: "\"Дар ҷаҳон ҳар кӣ паре дорад, пеши рӯи ту ояд,\nЗи ғамат ҳар кӣ ҳазин аст, ӯ сӯи ту биояд.\"",
-      source: "Девони Шамс, Ғазали 50",
-      audioUrl: "/audio/daily-verse-2.mp3",
-      date: "2023-06-01"
-    });
-    
-    this.createDailyVerse({
-      text: "\"Нури ҳақро набувад нуру дигар,\nНест андар рухи ӯ ранги дигар.\"",
-      source: "Девони Шамс, Ғазали 100",
-      audioUrl: "/audio/daily-verse-3.mp3",
-      date: "2023-06-02"
-    });
+    // Combine and sort results
+    return [...divanResults, ...masnaviResults].sort((a, b) => 
+      // Sort by most relevant - prioritize title matches
+      (b.title.toLowerCase().includes(query.toLowerCase()) ? 1 : 0) - 
+      (a.title.toLowerCase().includes(query.toLowerCase()) ? 1 : 0)
+    );
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
