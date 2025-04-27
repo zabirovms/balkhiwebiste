@@ -1,9 +1,22 @@
-import { db } from './db';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
+import * as schema from "@shared/schema";
 import {
   users, poems, divanPoems, mixedPoems, highlightedVerses, quotes
 } from "@shared/schema";
 
+// Database connection setup
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL must be set. Did you forget to provision a database?",
+  );
+}
+
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(pool, { schema });
+
+// Database initialization
 export async function initializeDatabase() {
   try {
     console.log('Checking if database needs initialization...');
@@ -38,6 +51,7 @@ export async function initializeDatabase() {
   }
 }
 
+// Sample data initialization functions
 async function initializeUsers() {
   await db.insert(users).values([
     { username: 'admin', password: 'admin123' },
@@ -124,4 +138,4 @@ async function initializeQuotes() {
     }
   ]);
   console.log('Quotes initialized.');
-}
+} 

@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initializeDatabase } from "./database";
 
 const app = express();
 app.use(express.json());
@@ -37,35 +38,39 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Using existing database with provided credentials
-  const server = await registerRoutes(app);
+  try {
+    // Initialize database
+    await initializeDatabase();
+    
+    // Register routes
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
-  });
+      res.status(status).json({ message });
+      throw err;
+    });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Setup Vite in development, serve static in production
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    // Use Heroku's PORT environment variable or default to 5000
+    const port = process.env.PORT || 5000;
+    server.listen({
+      port: Number(port),
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`Server running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
