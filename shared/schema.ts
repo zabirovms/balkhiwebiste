@@ -23,6 +23,7 @@ export const divanPoems = pgTable("divan_poems", {
   baytCount: integer("bayt_count").notNull(),
   tags: text("tags").array().notNull(),
   isFavorite: boolean("is_favorite").default(false).notNull(),
+  imageUrl: text("image_url"),
   audioUrl: text("audio_url"),
   explanation: text("explanation"),
 });
@@ -53,7 +54,9 @@ export const masnaviPoems = pgTable("masnavi_poems", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   baytCount: integer("bayt_count").notNull(),
+  tags: text("tags").array().notNull(),
   explanation: text("explanation"),
+  imageUrl: text("image_url"),
   audioUrl: text("audio_url"),
   isFavorite: boolean("is_favorite").default(false).notNull(),
 });
@@ -69,7 +72,7 @@ export const collections = pgTable("collections", {
   description: text("description").notNull(),
   poemCount: integer("poem_count").notNull(),
   imageUrl: text("image_url").notNull(),
-  type: text("type").notNull(), // 'divan' or 'masnavi'
+  type: text("type").notNull(), // 'divan', 'masnavi', or 'mixed'
 });
 
 export const insertCollectionSchema = createInsertSchema(collections).omit({

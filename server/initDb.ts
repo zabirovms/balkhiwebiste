@@ -32,8 +32,8 @@ export async function initializeDatabase() {
 
 async function initializeUsers() {
   await db.insert(users).values([
-    { username: 'admin', passwordHash: 'admin123', email: 'admin@example.com', role: 'admin' },
-    { username: 'user', passwordHash: 'user123', email: 'user@example.com', role: 'user' }
+    { username: 'admin', password: 'admin123' },
+    { username: 'user', password: 'user123' }
   ]);
   console.log('Users initialized.');
 }
@@ -81,21 +81,24 @@ async function initializeMasnaviBooks() {
       title: 'Дафтари аввал',
       description: 'Дафтари аввали Маснавӣ бо ҳикояти най оғоз мешавад, ки дар он Мавлоно дарди ҷудоӣ аз асли хешро баён мекунад.',
       baytCount: 4003,
-      imageUrl: 'https://images.unsplash.com/photo-1625895185147-bf4805f597cc?w=800'
+      imageUrl: 'https://images.unsplash.com/photo-1625895185147-bf4805f597cc?w=800',
+      themeColor: '#4E7FA3'
     },
     {
       daftarNumber: 2,
       title: 'Дафтари дуввум',
       description: 'Дафтари дуввуми Маснавӣ бо ҳикояти подшоҳу канизак оғоз мешавад ва ба мавзӯъҳои ишқу маърифат мепардозад.',
       baytCount: 3810,
-      imageUrl: 'https://images.unsplash.com/photo-1632406896548-3d619fb80bd9?w=800'
+      imageUrl: 'https://images.unsplash.com/photo-1632406896548-3d619fb80bd9?w=800',
+      themeColor: '#8E5A3F'
     },
     {
       daftarNumber: 3,
       title: 'Дафтари севвум',
       description: 'Дафтари севвуми Маснавӣ бо ҳикояти шоҳ ва қассоби ринд оғоз мешавад ва ба масъалаҳои ахлоқӣ ва маънавӣ таваҷҷуҳ мекунад.',
       baytCount: 4810,
-      imageUrl: 'https://images.unsplash.com/photo-1608318012990-9ab72b585a12?w=800'
+      imageUrl: 'https://images.unsplash.com/photo-1608318012990-9ab72b585a12?w=800',
+      themeColor: '#506B2F'
     }
   ]);
   console.log('Masnavi books initialized.');
@@ -152,15 +155,15 @@ async function initializeCollections() {
       title: 'Ишқ ва ирфон',
       description: 'Маҷмӯаи ашъор дар мавзӯи ишқ ва ирфон аз Мавлоно Ҷалолуддини Балхӣ',
       imageUrl: 'https://images.unsplash.com/photo-1629647587255-984a442f6ff7?w=800',
-      poemIds: '[1, 3, 4]',
-      type: 'mixed'
+      type: 'mixed',
+      poemCount: 3
     },
     {
       title: 'Ҳикмат ва маърифат',
       description: 'Маҷмӯаи ашъори ҳикматомез аз Мавлоно Ҷалолуддини Балхӣ',
       imageUrl: 'https://images.unsplash.com/photo-1632406895715-c447149e770e?w=800',
-      poemIds: '[2, 5]',
-      type: 'mixed'
+      type: 'mixed',
+      poemCount: 2
     }
   ]);
   console.log('Collections initialized.');
@@ -171,14 +174,14 @@ async function initializeDailyVerses() {
     {
       text: '"Биё, биё, ҳар чи ҳастӣ, биё, \nГар кофиру габру бутпарастӣ, биё. \nИн даргаҳи мо даргаҳи навмедӣ нест, \nСад бор агар тавба шикастӣ, биё."',
       source: 'Девони Шамс',
-      date: new Date(),
-      featured: true
+      date: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+      audioUrl: 'https://example.com/audio/daily1.mp3'
     },
     {
       text: '"Дар дили мо ҷуз муҳаббат нест ҷо, \nЧун дили мо хонаи Мавлост то. \nБо ҳама кас меҳрубонӣ мекунем, \nДушманон яксӯ ва бегона куҷо?"',
       source: 'Девони Шамс',
-      date: new Date(Date.now() - 86400000), // Yesterday
-      featured: false
+      date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday
+      audioUrl: null
     }
   ]);
   console.log('Daily verses initialized.');
